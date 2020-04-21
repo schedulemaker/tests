@@ -5,7 +5,7 @@ A unit and load testing harness Lambda function.
 ```
 {
     "functionName": <FUNCTION_NAME>,
-    "qualifier": <VERSION NUMBER OR ALIAS>
+    "qualifier": $LATEST # version number or alias, default is latest
     "tests": [
       {
         "testName": <NAME_OR_DESCRIPTION>,
