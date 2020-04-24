@@ -2,6 +2,8 @@ if (typeof(cache) === 'undefined'){
     var cache = require('./cache');
 }
 
+
+
 module.exports.handler = async function({functionName, qualifier='$LATEST', tests}, context){
     let results = [];
     await Promise.all(tests.map(test => runTest(functionName, qualifier, test, results)));
@@ -10,7 +12,7 @@ module.exports.handler = async function({functionName, qualifier='$LATEST', test
 
 
 async function runTest(functionName, qualifier, {testName, timeout=10, runs=1, payload, expected}, results){
-    await Promise.all([...Array(runs).keys()].map(index => {
+    await Promise.all([...Array(runs).keys()].map(async index => {
         let result = null;
         const params = {
             FunctionName: functionName,
@@ -18,17 +20,17 @@ async function runTest(functionName, qualifier, {testName, timeout=10, runs=1, p
             InvocationType: 'RequestResponse',
             Payload: JSON.stringify(payload)
         }
-        console.log(`Running test ${testName} on function ${functionName}...`)
+        console.log(`Running test <${testName}> on function <${functionName}>...`)
         const start = process.hrtime();
         try {
-            const response = await Lambda.invoke(params).promise();
+            const response = await cache.Lambda.invoke(params).promise();
             const end = process.hrtime(start);
             console.log(`Test took ${end[0]}s, ${end[1] / 1e6}ms`);
             result = testResult(response, expected);
         } catch (error) {
             console.log(`Error running test: ${error.message}`);
             result = {
-                error: error
+                error: error.message
             };
         }
         logResult(results, functionName, qualifier, testName, index, timeout, payload, expected, result);
@@ -43,9 +45,9 @@ function testResult(response, expected){
         };
     }
     try {
-        cache.assert.deepStrictEqual(response.Payload, expected);
+        cache.assert.deepStrictEqual(JSON.parse(response.Payload), expected);
         return {
-            successResult: true
+            successResult: 'true'
         };
     } catch (error) {
         console.log(`Test failed: ${error.message}`);
@@ -65,7 +67,7 @@ function logResult(results, functionName, qualifier, testName, run, timeout, pay
         payload: payload,
         expected: expected,
         timestamp: new Date().toISOString(),
-        testId: uuidv4(),
+        testId: cache.uuidv4(),
         ...result
     });
 }
@@ -82,7 +84,9 @@ async function logTests(results){
     let index = 0;
     do {
         const params = {
-            RequestItems: items.slice(index, index + 25)
+            RequestItems: {
+                [process.env.TABLENAME]: items.slice(index, index + 25)
+            }
         }
         try{
             await cache.DocClient.batchWrite(params).promise();
