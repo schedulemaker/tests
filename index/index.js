@@ -8,6 +8,7 @@ module.exports.handler = async function({functionName, qualifier='$LATEST', test
     let results = [];
     await Promise.all(tests.map(test => runTest(functionName, qualifier, test, results)));
     await logTests(results);
+    return results;
 }
 
 
